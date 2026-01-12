@@ -10,7 +10,6 @@ import {
   Grid,
   Paper,
   Typography,
-  TextField,
   Alert,
   Container,
   List,
@@ -18,7 +17,6 @@ import {
   ListItemText,
   Snackbar,
 } from '@mui/material';
-import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import VideoCameraFrontIcon from '@mui/icons-material/VideoCameraFront';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { plateDetectionService } from '../services/plateDetectionService';
@@ -26,13 +24,11 @@ import { useProcessContext } from '../contexts/ProcessContext';
 
 const PlateDetection = () => {
   const { setDetectedVehicleNumber } = useProcessContext();
-  const [selectedFile, setSelectedFile] = useState(null);
   const [detections, setDetections] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [resultImage, setResultImage] = useState(null);
   const [cameraStream, setCameraStream] = useState(null);
-  const [apiOnline, setApiOnline] = useState(true);
   const [successMessage, setSuccessMessage] = useState('');
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -43,12 +39,10 @@ const PlateDetection = () => {
       try {
         const ok = await plateDetectionService.checkHealth();
         if (mounted && !ok) {
-          setApiOnline(false);
-          setError('Backend API unreachable. Please start the backend (http://localhost:5000)');
+          setError('Backend API unreachable. Please start the backend -python api.py (http://localhost:5000)');
         }
       } catch (e) {
         if (mounted) {
-          setApiOnline(false);
           setError(`Backend health check failed: ${e.message}`);
         }
       }
@@ -56,56 +50,45 @@ const PlateDetection = () => {
     return () => { mounted = false; };
   }, []);
 
-  const handleFileSelect = (event) => {
-    const file = event.target.files[0];
-    if (file && file.type.startsWith('image/')) {
-      setSelectedFile(file);
-      setError(null);
-      setDetections([]);
-      setResultImage(null);
-    } else {
-      setError('Please select a valid image file');
+  // Effect to ensure video element plays when stream is set
+  useEffect(() => {
+    if (cameraStream && videoRef.current) {
+      videoRef.current.srcObject = cameraStream;
+      videoRef.current.play().catch((e) => {
+        console.error('Video play error:', e);
+      });
     }
-  };
-
-  const handleDetectFromFile = async () => {
-    if (!selectedFile) {
-      setError('Please select an image first');
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const result = await plateDetectionService.detectFromFile(selectedFile);
-
-      if (result.success) {
-        setDetections(result.detections);
-        setResultImage(`data:image/jpeg;base64,${result.image}`);
-      } else {
-        setError(result.error || 'Detection failed');
-      }
-    } catch (err) {
-      setError(`Error: ${err.message}`);
-      console.error('Detection error:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [cameraStream]);
 
   const handleStartCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' },
+        video: {
+          facingMode: 'environment',
+          width: { ideal: 300 },
+          height: { ideal: 150 },
+        },
       });
-      setCameraStream(stream);
+      
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        // Ensure video plays
+        videoRef.current.play().catch((e) => {
+          console.error('Video play error:', e);
+        });
       }
+      
+      setCameraStream(stream);
       setError(null);
     } catch (err) {
-      setError(`Camera access denied: ${err.message}`);
+      console.error('Camera error:', err);
+      if (err.name === 'NotAllowedError') {
+        setError('Camera permission denied. Please allow camera access in your browser settings.');
+      } else if (err.name === 'NotFoundError') {
+        setError('No camera found on this device.');
+      } else {
+        setError(`Camera error: ${err.message}`);
+      }
     }
   };
 
@@ -124,7 +107,6 @@ const PlateDetection = () => {
 
     canvasRef.current.toBlob(async (blob) => {
       const file = new File([blob], 'camera-capture.jpg', { type: 'image/jpeg' });
-      setSelectedFile(file);
       setLoading(true);
       setError(null);
 
@@ -147,7 +129,6 @@ const PlateDetection = () => {
   };
 
   const handleClear = () => {
-    setSelectedFile(null);
     setDetections([]);
     setResultImage(null);
     setError(null);
@@ -164,59 +145,16 @@ const PlateDetection = () => {
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <Grid container spacing={3}>
-        {/* Upload Section */}
+        {/* Camera Section */}
         <Grid item xs={12} md={6}>
           <Card>
             <CardHeader
               title="Number Plate Detection"
-              subheader="Upload or capture an image"
-              avatar={<CloudUploadIcon />}
+              subheader="Capture an image using your camera"
+              avatar={<VideoCameraFrontIcon />}
             />
             <CardContent>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                {/* File Upload */}
-                <Box
-                  sx={{
-                    border: '2px dashed #1976d2',
-                    borderRadius: 2,
-                    p: 3,
-                    textAlign: 'center',
-                    cursor: 'pointer',
-                    backgroundColor: '#f5f5f5',
-                    '&:hover': {
-                      backgroundColor: '#eeeeee',
-                    },
-                    transition: 'background-color 0.3s',
-                  }}
-                  component="label"
-                >
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileSelect}
-                    style={{ display: 'none' }}
-                  />
-                  <Typography variant="body1" sx={{ mb: 1 }}>
-                    Click to upload an image
-                  </Typography>
-                  <Typography variant="caption" color="textSecondary">
-                    {selectedFile ? `Selected: ${selectedFile.name}` : 'No file selected'}
-                  </Typography>
-                </Box>
-
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={handleDetectFromFile}
-                  disabled={!selectedFile || loading}
-                  fullWidth
-                  sx={{ py: 1.5 }}
-                >
-                  {loading ? <CircularProgress size={24} /> : 'Detect Plates'}
-                </Button>
-
-                <Divider sx={{ my: 1 }}>OR</Divider>
-
                 {/* Camera Section */}
                 {!cameraStream ? (
                   <Button
@@ -241,6 +179,7 @@ const PlateDetection = () => {
                         ref={videoRef}
                         autoPlay
                         playsInline
+                        muted
                         style={{ width: '100%', display: 'block' }}
                       />
                       <canvas
@@ -310,6 +249,7 @@ const PlateDetection = () => {
                     src={resultImage}
                     sx={{
                       width: '100%',
+                      height: { ideal: 150 },
                       borderRadius: 1,
                       backgroundColor: '#f5f5f5',
                     }}
@@ -372,7 +312,7 @@ const PlateDetection = () => {
             )}
 
             {/* No Results Message */}
-            {!loading && selectedFile && detections.length === 0 && resultImage && (
+            {!loading && detections.length === 0 && resultImage && (
               <Grid item xs={12}>
                 <Alert severity="info">No number plates detected in the image</Alert>
               </Grid>

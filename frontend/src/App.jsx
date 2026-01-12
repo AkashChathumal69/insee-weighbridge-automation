@@ -102,7 +102,7 @@ function App() {
                   <Grid item xs={12} id="plate-detection">
                     <Paper elevation={2} sx={{ p: 3, borderTop: '4px solid #1976d2' }}>
                       <Typography variant="h5" sx={{ mb: 3, fontWeight: 700, color: '#000000ff' }}>
-                        🔍 Number Plate Detection (SLNP)
+                         ✓ Number Plate Detection
                       </Typography>
                       <PlateDetection />
                     </Paper>
