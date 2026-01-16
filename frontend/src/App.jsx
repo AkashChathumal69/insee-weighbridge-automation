@@ -6,6 +6,7 @@ import DispatchStats from './components/DispatchStats';
 import ProcessQueue from './components/ProcessQueue';
 import WaitInForm from './components/forms/WaitInForm';
 import PlateDetection from './components/PlateDetection';
+import DataManagement from './components/DataManagement';
 import './App.css';
 
 const theme = createTheme({
@@ -56,6 +57,12 @@ function App() {
           <ListItem disablePadding>
             <Button href="#data-table" fullWidth sx={{ justifyContent: 'flex-start', pl: 2 , color: '#ffffffff'}}>
               Data Table
+            </Button>
+          </ListItem>
+
+          <ListItem disablePadding>
+            <Button href="#data-management" fullWidth sx={{ justifyContent: 'flex-start', pl: 2 , color: '#ffffffff'}}>
+              Data Management
             </Button>
           </ListItem>
 
@@ -134,6 +141,11 @@ function App() {
                       <Typography variant="h6">Data Table</Typography>
                       <Typography variant="body2" color="text.secondary">(Placeholder section for tabular data export)</Typography>
                     </Paper>
+                  </Grid>
+
+                  {/* Data Management Section */}
+                  <Grid item xs={12} id="data-management">
+                    <DataManagement />
                   </Grid>
 
                   {/* Data Visualization Section */}

@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 import cv2
 import numpy as np
@@ -10,6 +10,8 @@ import os
 import base64
 from io import BytesIO
 from PIL import Image
+from database import Database
+from excel_handler import ExcelHandler
 
 os.environ["YOLO_VERBOSE"] = "False"
 
@@ -218,6 +220,231 @@ def detect_base64():
         return jsonify({"error": str(e)}), 500
 
 
+# ==================== DATA PERSISTENCE ENDPOINTS ====================
+
+@app.route('/api/processes', methods=['GET'])
+def get_processes():
+    """Get all stored process entries"""
+    try:
+        processes = Database.get_all_processes()
+        return jsonify({
+            "success": True,
+            "data": processes,
+            "count": len(processes)
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/processes', methods=['POST'])
+def create_process():
+    """Create a new process entry"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"success": False, "error": "No data provided"}), 400
+        
+        process = Database.add_process(data)
+        return jsonify({
+            "success": True,
+            "message": "Process created successfully",
+            "data": process
+        }), 201
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/processes/<token_number>', methods=['GET'])
+def get_process(token_number):
+    """Get a specific process by token number"""
+    try:
+        process = Database.get_process_by_token(token_number)
+        if process:
+            return jsonify({
+                "success": True,
+                "data": process
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "error": "Process not found"
+            }), 404
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/processes/<token_number>', methods=['PUT'])
+def update_process(token_number):
+    """Update an existing process"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"success": False, "error": "No data provided"}), 400
+        
+        process = Database.update_process(token_number, data)
+        if process:
+            return jsonify({
+                "success": True,
+                "message": "Process updated successfully",
+                "data": process
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "error": "Process not found"
+            }), 404
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/processes/<token_number>', methods=['DELETE'])
+def delete_process(token_number):
+    """Delete a process entry"""
+    try:
+        Database.delete_process(token_number)
+        return jsonify({
+            "success": True,
+            "message": "Process deleted successfully"
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ==================== EXCEL EXPORT/IMPORT ENDPOINTS ====================
+
+@app.route('/api/export/excel', methods=['GET'])
+def export_excel():
+    """Export all process data to Excel"""
+    try:
+        processes = Database.get_all_processes()
+        
+        if not processes:
+            return jsonify({
+                "success": False,
+                "error": "No data to export"
+            }), 400
+        
+        filepath = ExcelHandler.export_to_excel(processes)
+        
+        if filepath and os.path.exists(filepath):
+            return send_file(
+                filepath,
+                mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                as_attachment=True,
+                download_name=os.path.basename(filepath)
+            )
+        else:
+            return jsonify({
+                "success": False,
+                "error": "Failed to generate Excel file"
+            }), 500
+    
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/import/excel', methods=['POST'])
+def import_excel():
+    """Import process data from Excel"""
+    try:
+        if 'file' not in request.files:
+            return jsonify({"success": False, "error": "No file provided"}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({"success": False, "error": "No file selected"}), 400
+        
+        # Save temporary file
+        temp_path = "./temp_import.xlsx"
+        file.save(temp_path)
+        
+        # Import data
+        data = ExcelHandler.import_from_excel(temp_path)
+        
+        # Clean up temp file
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+        
+        if data:
+            return jsonify({
+                "success": True,
+                "message": f"Successfully imported {len(data)} records",
+                "count": len(data),
+                "data": data
+            }), 200
+        else:
+            return jsonify({
+                "success": False,
+                "error": "Failed to import Excel file"
+            }), 400
+    
+    except Exception as e:
+        # Clean up temp file on error
+        if os.path.exists("./temp_import.xlsx"):
+            os.remove("./temp_import.xlsx")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/backup', methods=['POST'])
+def create_backup():
+    """Create a backup of the database"""
+    try:
+        backup_path = Database.backup()
+        if backup_path:
+            return jsonify({
+                "success": True,
+                "message": "Backup created successfully",
+                "path": backup_path
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "error": "Failed to create backup"
+            }), 500
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/export/list', methods=['GET'])
+def list_exports():
+    """List all available exports"""
+    try:
+        exports = ExcelHandler.list_exports()
+        return jsonify({
+            "success": True,
+            "data": exports,
+            "count": len(exports)
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/export/download/<filename>', methods=['GET'])
+def download_export(filename):
+    """Download a previously exported file"""
+    try:
+        export_path = os.path.join("./Database/exports", filename)
+        
+        # Security check: ensure file is in exports directory
+        if not os.path.abspath(export_path).startswith(os.path.abspath("./Database/exports")):
+            return jsonify({"success": False, "error": "Invalid file"}), 400
+        
+        if os.path.exists(export_path):
+            return send_file(
+                export_path,
+                mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                as_attachment=True,
+                download_name=filename
+            )
+        else:
+            return jsonify({"success": False, "error": "File not found"}), 404
+    
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 if __name__ == '__main__':
     print("Starting SLNP Detection API on http://localhost:5000")
+    print("Data persistence enabled with backend database")
+    print("Excel import/export functionality available")
     app.run(debug=True, host='0.0.0.0', port=5000)
