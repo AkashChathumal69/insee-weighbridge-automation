@@ -59,7 +59,7 @@ class ExcelHandler:
                 # Add wait_out data if exists
                 wait_out = process.get("waitOut")
                 if wait_out:
-                    base_row["Departure Time"] = wait_out.get("departureTime", "")
+                    base_row["Departure Time"] = wait_out.get("wayoutTime", "")
                     base_row["Total Issue"] = wait_out.get("totalIssue", "")
                     base_row["Notes"] = wait_out.get("notes", "")
                 

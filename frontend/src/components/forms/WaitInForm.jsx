@@ -128,7 +128,7 @@ const WaitInForm = () => {
                 <MenuItem value="Marine plus">Marine plus</MenuItem>
                 <MenuItem value="Mahamera">Mahamera</MenuItem>
                 <MenuItem value="Scamale">Scamale</MenuItem>
-                <MenuItem value="red slow">red slow</MenuItem>
+                <MenuItem value="red slow">Red Flow</MenuItem>
                 <MenuItem value="Bulk">Bulk</MenuItem>
               </Select>
             </FormControl>
@@ -199,8 +199,8 @@ const WaitInForm = () => {
               fullWidth
               size="small"
               label="Driver Phone"
-              name="driver.phone"
-              value={formData.driver.phone}
+              name="driverPhone"
+              value={formData.driverPhone}
               onChange={handleChange}
             />
           </Grid>
@@ -229,6 +229,17 @@ const WaitInForm = () => {
                 <MenuItem value="high">High</MenuItem>
               </Select>
             </FormControl>
+          </Grid>
+
+          <Grid item xs={12} md={3}>
+            <TextField
+              fullWidth
+              size="small"
+              label="Driver PPE"
+              name="driverPPENumber"
+              value={formData.driverPPENumber}
+              onChange={handleChange}
+            />
           </Grid>
 
           <Grid item xs={12} md={3}>
@@ -302,6 +313,17 @@ const WaitInForm = () => {
                 <MenuItem value="high">High</MenuItem>
               </Select>
             </FormControl>
+          </Grid>
+
+           <Grid item xs={12} md={3}>
+            <TextField
+              fullWidth
+              size="small"
+              label="Helper PPE"
+              name="helperPPENumber"
+              value={formData.helperPPENumber}
+              onChange={handleChange}
+            />
           </Grid>
 
           {/* Delivery Table */}
