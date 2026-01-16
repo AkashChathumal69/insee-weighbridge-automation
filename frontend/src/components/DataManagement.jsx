@@ -25,7 +25,6 @@ const DataManagement = () => {
   const {
     processQueue,
     exportToExcel,
-    importFromExcel,
     loading,
     error,
     loadProcessesFromBackend,
